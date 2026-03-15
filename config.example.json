@@ -1,0 +1,31 @@
+{
+  "base_url": "https://www.azone-int.co.jp/azonet/",
+  "login_url": "https://www.azone-int.co.jp/azonet/login",
+  "product_url": "https://www.azone-int.co.jp/azonet/item/PRODUCT_CODE",
+  "email": "your_email@example.com",
+  "password": "your_password",
+  "launch_headless": false,
+  "slow_mo_ms": 50,
+  "timeout_ms": 10000,
+  "quantity": 1,
+  "target_time": null,
+  "dry_run": true,
+  "selectors": {
+    "email_input": "input[name='email']",
+    "password_input": "input[name='password']",
+    "login_button": "button[type='submit']",
+    "quantity_input": "input[name='quantity'], select[name='quantity']",
+    "add_to_cart_button": "input[type='submit'][value*='カート'], button:has-text('カート')",
+    "go_to_checkout_button": "a[href*='cart']",
+    "agree_terms_checkbox": "input[name='agree']",
+    "confirm_order_button": "button.confirm-order"
+  },
+  "wait_for_cart_button_seconds": 180,
+  "enforce_single_quantity": true,
+  "cart_refresh_initial_interval_ms": 300,
+  "cart_refresh_max_interval_ms": 2000,
+  "cart_refresh_backoff_multiplier": 1.5,
+  "cart_refresh_max_attempts": 300,
+  "parallel_refresh_pages": 5,
+  "multi_page_stagger_ms": 80
+}
