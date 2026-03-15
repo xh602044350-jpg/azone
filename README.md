@@ -63,7 +63,8 @@ python gui_app.py
 ```
 
 ### 看不到图形界面怎么办
-- 先双击项目里的 `start_gui.bat`（我已新增），它会自动检查 Python 并尝试启动 GUI。
+- 先双击项目里的 `start_gui.bat`（我已新增），它会在常驻窗口中自动检查 Python/依赖并尝试启动 GUI，不会一闪而过。
+- 如果仍启动失败，请把同目录 `start_gui.log` 最后 30 行发我，我可直接定位问题。
 - 如果窗口里报错 `No module named tkinter`，说明你的 Python 没装 Tk 组件，需要重装 Python（勾选 tcl/tk 或安装官方完整版）。
 - 如果报 `python 不是内部或外部命令`，说明没加 PATH，请重装 Python 并勾选 “Add python.exe to PATH”。
 
