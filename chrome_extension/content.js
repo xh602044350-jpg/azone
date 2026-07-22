@@ -83,7 +83,7 @@
 
     return Array.from(document.querySelectorAll('button, input[type="button"], input[type="submit"], a')).find((item) => {
       const label = item.value || item.textContent || item.getAttribute('title') || item.getAttribute('aria-label') || '';
-      return label.includes('カート') || label.includes('買い物かご') || label.includes('Add to Cart');
+      return label.includes('カート') || label.includes('買い物かご') || label.includes('購物車') || label.includes('购物车') || label.includes('Add to Cart');
     });
   }
 
@@ -108,23 +108,23 @@
     for (const selector of selectors) {
       const element = Array.from(document.querySelectorAll(selector)).find((item) => {
         const label = item.value || item.textContent || item.getAttribute('title') || '';
-        return label.includes('レジに進む') || label.includes('注文手続') || label.includes('購入手続');
+        return label.includes('レジに進む') || label.includes('注文手続') || label.includes('購入手続') || label.includes('進行結算') || label.includes('进行结算') || label.includes('結算') || label.includes('结算');
       });
       if (element) return element;
     }
     return Array.from(document.querySelectorAll('a, button, input[type="button"], input[type="submit"]')).find((item) => {
       const label = item.value || item.textContent || item.getAttribute('title') || '';
-      return label.includes('レジに進む');
+      return label.includes('レジに進む') || label.includes('進行結算') || label.includes('进行结算') || label.includes('結算') || label.includes('结算');
     });
   }
 
   function clickCheckout() {
     const button = findCheckoutButton();
     if (!button) {
-      return { clicked: false, message: '未找到“レジに進む”按钮。请确认当前页面是购物车页面。' };
+      return { clicked: false, message: '未找到“レジに進む / 進行結算”按钮。请确认当前页面是购物车页面。' };
     }
     button.click();
-    return { clicked: true, message: '已点击“レジに進む”按钮。' };
+    return { clicked: true, message: '已点击“レジに進む / 進行結算”按钮。' };
   }
 
   function restoreOriginals() {

@@ -47,15 +47,29 @@ async function waitForTabReady(tabId, timeoutMs = 12000) {
   return chrome.tabs.get(tabId);
 }
 
-async function waitForCartPage(tabId, timeoutMs = 10000) {
-  const startedAt = Date.now();
-  while (Date.now() - startedAt < timeoutMs) {
-    const tab = await chrome.tabs.get(tabId);
-    if (tab.url?.startsWith(CART_URL)) return tab;
-    await sleep(300);
+async function goToCartFast(tabId) {
+  await sleep(150);
+  const tab = await chrome.tabs.get(tabId);
+  if (!tab.url?.startsWith(CART_URL)) {
+    await chrome.tabs.update(tabId, { url: CART_URL });
   }
-  await chrome.tabs.update(tabId, { url: CART_URL });
-  return waitForTabReady(tabId);
+  return waitForTabReady(tabId, 1500);
+}
+
+async function clickCheckoutFast(tabId, timeoutMs = 2500) {
+  const startedAt = Date.now();
+  let lastMessage = '';
+  while (Date.now() - startedAt < timeoutMs) {
+    try {
+      const result = await sendToTab(tabId, { type: 'AZONE_CLICK_CHECKOUT' });
+      lastMessage = result.message;
+      if (result.ok) return result;
+    } catch (error) {
+      lastMessage = error.message;
+    }
+    await sleep(100);
+  }
+  throw new Error(lastMessage || '未找到结算按钮。');
 }
 
 function readOptions() {
@@ -101,11 +115,10 @@ autoCheckoutButton.addEventListener('click', async () => {
       productId,
       quantity,
     });
-    setStatus(`${addResult.message}\n正在等待购物车页面...`);
+    setStatus(`${addResult.message}\n正在快速进入购物车并点击结算...`);
 
-    await waitForCartPage(tab.id);
-    const cartTab = await waitForTabReady(tab.id);
-    const checkoutResult = await sendToTab(cartTab.id, { type: 'AZONE_CLICK_CHECKOUT' });
+    const cartTab = await goToCartFast(tab.id);
+    const checkoutResult = await clickCheckoutFast(cartTab.id);
     setStatus(`${addResult.message}\n${checkoutResult.message}`);
   } catch (error) {
     setStatus(`失败：${error.message}`);
