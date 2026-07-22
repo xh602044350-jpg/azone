@@ -5,6 +5,7 @@ const autoCheckoutButton = document.querySelector('#autoCheckout');
 const statusBox = document.querySelector('#status');
 const AZONE_ORIGIN = 'https://www.azone-int.co.jp';
 const CART_URL = `${AZONE_ORIGIN}/azonet/cart`;
+const ADD_TO_CART_SETTLE_MS = 1200;
 
 function setStatus(message) {
   statusBox.textContent = message;
@@ -35,6 +36,15 @@ async function sendToTab(tabId, message) {
 async function sendToActiveTab(message) {
   const tab = await getActiveTab();
   return sendToTab(tab.id, message);
+}
+
+
+async function waitForAddToCartToSettle(tabId) {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < ADD_TO_CART_SETTLE_MS) {
+    await sleep(100);
+  }
+  return chrome.tabs.get(tabId);
 }
 
 async function waitForTabReady(tabId, timeoutMs = 12000) {
@@ -95,10 +105,12 @@ autoCheckoutButton.addEventListener('click', async () => {
       productId,
       quantity,
     });
-    setStatus(`${addResult.message}\n正在直接进入结算页面（购物车页会被自动跳过显示）...`);
+    if (!addResult.ok) {
+      throw new Error(addResult.message);
+    }
+    setStatus(`${addResult.message}\n正在等待加购写入购物车，然后直接进入结算页面...`);
 
-    await sleep(120);
-    const currentTab = await chrome.tabs.get(tab.id);
+    const currentTab = await waitForAddToCartToSettle(tab.id);
     if (!currentTab.url?.startsWith(CART_URL)) {
       await chrome.tabs.update(tab.id, { url: CART_URL });
     }
