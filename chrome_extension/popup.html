@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Azone 商品ID替换助手</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <main class="wrap">
+    <h1>Azone 商品ID替换助手</h1>
+    <p class="hint">在已打开的 Azone 商品页上直接改 DOM 属性，不刷新、不重新加载页面。</p>
+
+    <label for="productId">目标商品 ID / JAN 码</label>
+    <input id="productId" type="text" inputmode="numeric" autocomplete="off" placeholder="例如 4573199843124">
+
+    <label for="quantity">数量</label>
+    <input id="quantity" type="number" min="1" max="99" step="1" value="1">
+
+    <button id="replaceId" type="button">替换ID</button>
+    <button id="autoCheckout" type="button" class="checkout">自动添加购物车并去结算</button>
+
+    <pre id="status" aria-live="polite"></pre>
+  </main>
+  <script src="popup.js"></script>
+</body>
+</html>

@@ -1,0 +1,245 @@
+(() => {
+  if (window.__azoneIdHelperLoaded) return;
+  window.__azoneIdHelperLoaded = true;
+
+  const originalValues = new WeakMap();
+
+  const CART_PATH_PREFIX = '/azonet/cart';
+  const AUTO_CHECKOUT_STYLE_ID = 'azone-auto-checkout-hide-cart';
+
+  function hideCartPage() {
+    if (document.getElementById(AUTO_CHECKOUT_STYLE_ID)) return;
+    const style = document.createElement('style');
+    style.id = AUTO_CHECKOUT_STYLE_ID;
+    style.textContent = 'html { opacity: 0 !important; }';
+    (document.documentElement || document.head).appendChild(style);
+  }
+
+  function showCartPage() {
+    document.getElementById(AUTO_CHECKOUT_STYLE_ID)?.remove();
+  }
+
+  function isCartPage() {
+    return window.location.pathname.startsWith(CART_PATH_PREFIX);
+  }
+
+  async function shouldAutoCheckout() {
+    const data = await chrome.storage.local.get({ azoneAutoCheckoutUntil: 0 });
+    return Date.now() < Number(data.azoneAutoCheckoutUntil || 0);
+  }
+
+  async function clearAutoCheckout() {
+    await chrome.storage.local.remove('azoneAutoCheckoutUntil');
+  }
+
+  async function autoClickCheckoutFromCart() {
+    if (!isCartPage()) return;
+    hideCartPage();
+    if (!(await shouldAutoCheckout())) {
+      showCartPage();
+      return;
+    }
+
+    const startedAt = Date.now();
+    const timer = window.setInterval(async () => {
+      const result = clickCheckout();
+      if (result.clicked) {
+        window.clearInterval(timer);
+        await clearAutoCheckout();
+        return;
+      }
+      if (Date.now() - startedAt > 4000) {
+        window.clearInterval(timer);
+        showCartPage();
+      }
+    }, 20);
+  }
+
+  function remember(element, attribute) {
+    let values = originalValues.get(element);
+    if (!values) {
+      values = new Map();
+      originalValues.set(element, values);
+    }
+    if (!values.has(attribute)) {
+      values.set(attribute, element.getAttribute(attribute));
+    }
+  }
+
+  function setAttribute(element, attribute, value) {
+    remember(element, attribute);
+    element.setAttribute(attribute, value);
+  }
+
+  function replaceAttributeId(attribute, productId, matcher) {
+    let count = 0;
+    document.querySelectorAll(`[${attribute}]`).forEach((element) => {
+      const current = element.getAttribute(attribute);
+      if (!current || !matcher.test(current)) return;
+      const next = current.replace(matcher, productId);
+      if (next !== current) {
+        setAttribute(element, attribute, next);
+        count += 1;
+      }
+    });
+    return count;
+  }
+
+  function applyQuantity(productId, quantity) {
+    const selector = `select[name="item_cnt_${productId}"], input[name="item_cnt_${productId}"], select[name="quantity"], input[name="quantity"]`;
+    const field = document.querySelector(selector);
+    if (!field) return false;
+
+    if (field.tagName.toLowerCase() === 'select') {
+      const option = Array.from(field.options).find((item) => item.value === quantity);
+      if (option) field.value = quantity;
+    } else {
+      field.value = quantity;
+    }
+    field.dispatchEvent(new Event('input', { bubbles: true }));
+    field.dispatchEvent(new Event('change', { bubbles: true }));
+    return true;
+  }
+
+  function applyProductId(productId, quantity) {
+    const janMatcher = /\d{8,}/;
+    const itemCountMatcher = /(?<=item_cnt_)\d{8,}/;
+    const stats = {
+      name: replaceAttributeId('name', productId, itemCountMatcher),
+      dataJancode: replaceAttributeId('data-jancode', productId, janMatcher),
+      dataItemCode: replaceAttributeId('data-item-code', productId, janMatcher),
+      href: replaceAttributeId('href', productId, /(?<=\/azonet\/item\/)\d{8,}/),
+      action: replaceAttributeId('action', productId, /(?<=\/azonet\/item\/)\d{8,}/),
+      quantitySet: false,
+    };
+    stats.quantitySet = applyQuantity(productId, quantity);
+
+    const cartButton = document.querySelector(`button[data-jancode="${productId}"], input[data-jancode="${productId}"]`);
+    if (cartButton) cartButton.dataset.azoneIdHelperMatched = 'true';
+
+    return stats;
+  }
+
+
+
+  function findAddToCartButton(productId) {
+    const exactSelector = [
+      `button[data-jancode="${productId}"]`,
+      `input[data-jancode="${productId}"]`,
+      `button[name="${productId}"]`,
+      `input[name="${productId}"]`,
+    ].join(', ');
+    const exact = document.querySelector(exactSelector);
+    if (exact) return exact;
+
+    return Array.from(document.querySelectorAll('button, input[type="button"], input[type="submit"], a')).find((item) => {
+      const label = item.value || item.textContent || item.getAttribute('title') || item.getAttribute('aria-label') || '';
+      return label.includes('カート') || label.includes('買い物かご') || label.includes('購物車') || label.includes('购物车') || label.includes('Add to Cart');
+    });
+  }
+
+  function addToCart(productId) {
+    const button = findAddToCartButton(productId);
+    if (!button) {
+      return { clicked: false, message: '未找到加入购物车按钮。请确认当前商品页已有“カート”按钮。' };
+    }
+    button.click();
+    return { clicked: true, message: '已点击加入购物车按钮。' };
+  }
+
+  function findCheckoutButton() {
+    const selectors = [
+      'a[href*="checkout"]',
+      'a[href*="order"]',
+      'button[type="submit"]',
+      'input[type="submit"]',
+      '.btn-danger',
+      '.btn-primary',
+    ];
+    for (const selector of selectors) {
+      const element = Array.from(document.querySelectorAll(selector)).find((item) => {
+        const label = item.value || item.textContent || item.getAttribute('title') || '';
+        return label.includes('レジに進む') || label.includes('注文手続') || label.includes('購入手続') || label.includes('進行結算') || label.includes('进行结算') || label.includes('結算') || label.includes('结算');
+      });
+      if (element) return element;
+    }
+    return Array.from(document.querySelectorAll('a, button, input[type="button"], input[type="submit"]')).find((item) => {
+      const label = item.value || item.textContent || item.getAttribute('title') || '';
+      return label.includes('レジに進む') || label.includes('進行結算') || label.includes('进行结算') || label.includes('結算') || label.includes('结算');
+    });
+  }
+
+  function clickCheckout() {
+    const button = findCheckoutButton();
+    if (!button) {
+      return { clicked: false, message: '未找到“レジに進む / 進行結算”按钮。请确认当前页面是购物车页面。' };
+    }
+    button.click();
+    return { clicked: true, message: '已点击“レジに進む / 進行結算”按钮。' };
+  }
+
+  function restoreOriginals() {
+    let count = 0;
+    document.querySelectorAll('*').forEach((element) => {
+      const values = originalValues.get(element);
+      if (!values) return;
+      values.forEach((value, attribute) => {
+        if (value === null) element.removeAttribute(attribute);
+        else element.setAttribute(attribute, value);
+        count += 1;
+      });
+    });
+    return count;
+  }
+
+  autoClickCheckoutFromCart();
+
+  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+    if (message.type === 'AZONE_APPLY_PRODUCT_ID') {
+      const stats = applyProductId(message.productId, message.quantity || '1');
+      sendResponse({
+        ok: true,
+        message: [
+          `已应用商品 ID：${message.productId}`,
+          `数量：${message.quantity || '1'}${stats.quantitySet ? '（已设置）' : '（未找到数量框）'}`,
+          `已替换 name：${stats.name} 个`,
+          `已替换 data-jancode：${stats.dataJancode} 个`,
+          `已替换 data-item-code：${stats.dataItemCode} 个`,
+          `已替换 href/action：${stats.href + stats.action} 个`,
+          '页面没有刷新或重新加载。',
+        ].join('\n'),
+      });
+      return true;
+    }
+
+
+    if (message.type === 'AZONE_APPLY_AND_ADD_TO_CART') {
+      const stats = applyProductId(message.productId, message.quantity || '1');
+      const addResult = addToCart(message.productId);
+      sendResponse({
+        ok: addResult.clicked,
+        message: [
+          `已替换 ID：${message.productId}`,
+          `数量：${message.quantity || '1'}${stats.quantitySet ? '（已设置）' : '（未找到数量框）'}`,
+          addResult.message,
+        ].join('\n'),
+      });
+      return true;
+    }
+
+
+    if (message.type === 'AZONE_CLICK_CHECKOUT') {
+      const result = clickCheckout();
+      sendResponse({ ok: result.clicked, message: result.message });
+      return true;
+    }
+
+    if (message.type === 'AZONE_RESTORE_ORIGINALS') {
+      const count = restoreOriginals();
+      sendResponse({ ok: true, message: `已恢复 ${count} 个属性。页面没有刷新或重新加载。` });
+      return true;
+    }
+
+    return false;
+  });
+})();
