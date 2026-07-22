@@ -43,21 +43,24 @@ https://www.azone-int.co.jp/azonet/item/4573199845111
 4. 输入数量，默认 `1`。
 5. 点击「应用到当前页面」。
 6. 插件会显示替换了多少个属性，并确认「页面没有刷新或重新加载」。
+7. 商品加入购物车后，可点击插件里的「跳转购物车」打开 `https://www.azone-int.co.jp/azonet/cart`。
+8. 在购物车页面可点击「点击“レジに進む”」，插件会尝试点击购物车页右下角的结算按钮。
 
-如果想撤销本页修改，可以点击「恢复本页原始值」。
+如果想撤销本页 DOM 属性修改，可以点击「恢复本页原始值」。
 
 ## 插件做了什么
 
 插件包含三个核心文件：
 
-- `chrome_extension/manifest.json`：Chrome Manifest V3 配置，限制只在 `https://www.azone-int.co.jp/azonet/item/*` 商品页生效。
-- `chrome_extension/popup.html` / `popup.js`：提供输入商品 ID 和数量的 UI，并把指令发送给当前标签页。
-- `chrome_extension/content.js`：在当前页面内替换 DOM 属性，不调用 `location.reload()`，也不执行页面刷新。
+- `chrome_extension/manifest.json`：Chrome Manifest V3 配置，限制只在 `https://www.azone-int.co.jp/azonet/*` 页面生效。
+- `chrome_extension/popup.html` / `popup.js`：提供输入商品 ID 和数量、跳转购物车、点击“レジに進む”的 UI，并把指令发送给当前标签页。
+- `chrome_extension/content.js`：在当前页面内替换 DOM 属性，并在购物车页查找/点击“レジに進む”按钮；替换 ID 时不调用 `location.reload()`，也不执行页面刷新。
 
 ## 注意事项
 
 - 请在遵守网站服务条款和当地法律前提下使用。
 - 插件只负责替换当前页面里已有的 DOM 属性；如果页面本身没有加购按钮或数量框，插件不会通过刷新去等待它出现。
+- 「跳转购物车」是你主动点击后的页面跳转；商品 ID 替换本身仍然不会刷新或重新加载页面。
 - 如果 Azone 后续修改了页面结构，可能需要调整 `content.js` 中的匹配规则。
 
 ## 旧版脚本说明

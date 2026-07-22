@@ -69,6 +69,38 @@
     return stats;
   }
 
+
+  function findCheckoutButton() {
+    const selectors = [
+      'a[href*="checkout"]',
+      'a[href*="order"]',
+      'button[type="submit"]',
+      'input[type="submit"]',
+      '.btn-danger',
+      '.btn-primary',
+    ];
+    for (const selector of selectors) {
+      const element = Array.from(document.querySelectorAll(selector)).find((item) => {
+        const label = item.value || item.textContent || item.getAttribute('title') || '';
+        return label.includes('レジに進む') || label.includes('注文手続') || label.includes('購入手続');
+      });
+      if (element) return element;
+    }
+    return Array.from(document.querySelectorAll('a, button, input[type="button"], input[type="submit"]')).find((item) => {
+      const label = item.value || item.textContent || item.getAttribute('title') || '';
+      return label.includes('レジに進む');
+    });
+  }
+
+  function clickCheckout() {
+    const button = findCheckoutButton();
+    if (!button) {
+      return { clicked: false, message: '未找到“レジに進む”按钮。请确认当前页面是购物车页面。' };
+    }
+    button.click();
+    return { clicked: true, message: '已点击“レジに進む”按钮。' };
+  }
+
   function restoreOriginals() {
     let count = 0;
     document.querySelectorAll('*').forEach((element) => {
@@ -98,6 +130,13 @@
           '页面没有刷新或重新加载。',
         ].join('\n'),
       });
+      return true;
+    }
+
+
+    if (message.type === 'AZONE_CLICK_CHECKOUT') {
+      const result = clickCheckout();
+      sendResponse({ ok: result.clicked, message: result.message });
       return true;
     }
 

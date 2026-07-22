@@ -1,6 +1,8 @@
 const productIdInput = document.querySelector('#productId');
 const quantityInput = document.querySelector('#quantity');
 const applyButton = document.querySelector('#apply');
+const goCartButton = document.querySelector('#goCart');
+const checkoutButton = document.querySelector('#checkout');
 const restoreButton = document.querySelector('#restore');
 const statusBox = document.querySelector('#status');
 
@@ -11,8 +13,8 @@ function setStatus(message) {
 async function getActiveTab() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab?.id) throw new Error('没有找到当前标签页。');
-  if (!tab.url?.startsWith('https://www.azone-int.co.jp/azonet/item/')) {
-    throw new Error('请先打开 Azone 商品页：https://www.azone-int.co.jp/azonet/item/...');
+  if (!tab.url?.startsWith('https://www.azone-int.co.jp/azonet/')) {
+    throw new Error('请先打开 Azone 页面：https://www.azone-int.co.jp/azonet/...');
   }
   return tab;
 }
@@ -51,6 +53,34 @@ applyButton.addEventListener('click', async () => {
     setStatus(`失败：${error.message}`);
   } finally {
     applyButton.disabled = false;
+  }
+});
+
+
+goCartButton.addEventListener('click', async () => {
+  goCartButton.disabled = true;
+  setStatus('正在跳转购物车...');
+  try {
+    const tab = await getActiveTab();
+    await chrome.tabs.update(tab.id, { url: 'https://www.azone-int.co.jp/azonet/cart' });
+    setStatus('已跳转到购物车页面。');
+  } catch (error) {
+    setStatus(`失败：${error.message}`);
+  } finally {
+    goCartButton.disabled = false;
+  }
+});
+
+checkoutButton.addEventListener('click', async () => {
+  checkoutButton.disabled = true;
+  setStatus('正在点击购物车页面的“レジに進む”按钮...');
+  try {
+    const result = await sendToActiveTab({ type: 'AZONE_CLICK_CHECKOUT' });
+    setStatus(result.message);
+  } catch (error) {
+    setStatus(`失败：${error.message}`);
+  } finally {
+    checkoutButton.disabled = false;
   }
 });
 
