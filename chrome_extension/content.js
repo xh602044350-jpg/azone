@@ -70,6 +70,32 @@
   }
 
 
+
+  function findAddToCartButton(productId) {
+    const exactSelector = [
+      `button[data-jancode="${productId}"]`,
+      `input[data-jancode="${productId}"]`,
+      `button[name="${productId}"]`,
+      `input[name="${productId}"]`,
+    ].join(', ');
+    const exact = document.querySelector(exactSelector);
+    if (exact) return exact;
+
+    return Array.from(document.querySelectorAll('button, input[type="button"], input[type="submit"], a')).find((item) => {
+      const label = item.value || item.textContent || item.getAttribute('title') || item.getAttribute('aria-label') || '';
+      return label.includes('カート') || label.includes('買い物かご') || label.includes('Add to Cart');
+    });
+  }
+
+  function addToCart(productId) {
+    const button = findAddToCartButton(productId);
+    if (!button) {
+      return { clicked: false, message: '未找到加入购物车按钮。请确认当前商品页已有“カート”按钮。' };
+    }
+    button.click();
+    return { clicked: true, message: '已点击加入购物车按钮。' };
+  }
+
   function findCheckoutButton() {
     const selectors = [
       'a[href*="checkout"]',
@@ -128,6 +154,21 @@
           `已替换 data-item-code：${stats.dataItemCode} 个`,
           `已替换 href/action：${stats.href + stats.action} 个`,
           '页面没有刷新或重新加载。',
+        ].join('\n'),
+      });
+      return true;
+    }
+
+
+    if (message.type === 'AZONE_APPLY_AND_ADD_TO_CART') {
+      const stats = applyProductId(message.productId, message.quantity || '1');
+      const addResult = addToCart(message.productId);
+      sendResponse({
+        ok: addResult.clicked,
+        message: [
+          `已替换 ID：${message.productId}`,
+          `数量：${message.quantity || '1'}${stats.quantitySet ? '（已设置）' : '（未找到数量框）'}`,
+          addResult.message,
         ].join('\n'),
       });
       return true;

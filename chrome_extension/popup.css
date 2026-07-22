@@ -29,9 +29,7 @@ button {
   font-weight: 700;
   cursor: pointer;
 }
-button.cart { background: #16a34a; }
 button.checkout { background: #dc2626; }
-button.secondary { background: #475569; }
 button:disabled { opacity: .65; cursor: not-allowed; }
 pre {
   min-height: 72px;
