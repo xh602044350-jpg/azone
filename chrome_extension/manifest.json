@@ -13,7 +13,7 @@
     {
       "matches": ["https://www.azone-int.co.jp/azonet/*"],
       "js": ["content.js"],
-      "run_at": "document_idle"
+      "run_at": "document_start"
     }
   ]
 }

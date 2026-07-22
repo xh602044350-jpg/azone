@@ -4,6 +4,57 @@
 
   const originalValues = new WeakMap();
 
+  const CART_PATH_PREFIX = '/azonet/cart';
+  const AUTO_CHECKOUT_STYLE_ID = 'azone-auto-checkout-hide-cart';
+
+  function hideCartPage() {
+    if (document.getElementById(AUTO_CHECKOUT_STYLE_ID)) return;
+    const style = document.createElement('style');
+    style.id = AUTO_CHECKOUT_STYLE_ID;
+    style.textContent = 'html { opacity: 0 !important; }';
+    (document.documentElement || document.head).appendChild(style);
+  }
+
+  function showCartPage() {
+    document.getElementById(AUTO_CHECKOUT_STYLE_ID)?.remove();
+  }
+
+  function isCartPage() {
+    return window.location.pathname.startsWith(CART_PATH_PREFIX);
+  }
+
+  async function shouldAutoCheckout() {
+    const data = await chrome.storage.local.get({ azoneAutoCheckoutUntil: 0 });
+    return Date.now() < Number(data.azoneAutoCheckoutUntil || 0);
+  }
+
+  async function clearAutoCheckout() {
+    await chrome.storage.local.remove('azoneAutoCheckoutUntil');
+  }
+
+  async function autoClickCheckoutFromCart() {
+    if (!isCartPage()) return;
+    hideCartPage();
+    if (!(await shouldAutoCheckout())) {
+      showCartPage();
+      return;
+    }
+
+    const startedAt = Date.now();
+    const timer = window.setInterval(async () => {
+      const result = clickCheckout();
+      if (result.clicked) {
+        window.clearInterval(timer);
+        await clearAutoCheckout();
+        return;
+      }
+      if (Date.now() - startedAt > 4000) {
+        window.clearInterval(timer);
+        showCartPage();
+      }
+    }, 20);
+  }
+
   function remember(element, attribute) {
     let values = originalValues.get(element);
     if (!values) {
@@ -140,6 +191,8 @@
     });
     return count;
   }
+
+  autoClickCheckoutFromCart();
 
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (message.type === 'AZONE_APPLY_PRODUCT_ID') {
