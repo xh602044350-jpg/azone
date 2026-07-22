@@ -1,7 +1,7 @@
 {
   "base_url": "https://www.azone-int.co.jp/azonet/",
   "login_url": "https://www.azone-int.co.jp/azonet/login",
-  "product_url": "https://www.azone-int.co.jp/azonet/item/PRODUCT_CODE",
+  "product_url": "https://www.azone-int.co.jp/azonet/item/4573199843124",
   "email": "your_email@example.com",
   "password": "your_password",
   "launch_headless": false,
@@ -14,8 +14,8 @@
     "email_input": "input[name='email']",
     "password_input": "input[name='password']",
     "login_button": "button[type='submit']",
-    "quantity_input": "input[name='quantity'], select[name='quantity']",
-    "add_to_cart_button": "input[type='submit'][value*='カート'], button:has-text('カート')",
+    "quantity_input": "select[name=\"item_cnt_{product_id}\"], input[name=\"item_cnt_{product_id}\"], select[name=\"quantity\"], input[name=\"quantity\"]",
+    "add_to_cart_button": "button[data-jancode=\"{product_id}\"]:has-text(\"カート\"), button[data-jancode=\"{product_id}\"], input[type=\"submit\"][value*=\"カート\"], button:has-text(\"カート\")",
     "go_to_checkout_button": "a[href*='cart']",
     "agree_terms_checkbox": "input[name='agree']",
     "confirm_order_button": "button.confirm-order"
@@ -27,5 +27,6 @@
   "cart_refresh_backoff_multiplier": 1.5,
   "cart_refresh_max_attempts": 300,
   "parallel_refresh_pages": 5,
-  "multi_page_stagger_ms": 80
+  "multi_page_stagger_ms": 80,
+  "product_id": "4573199843124"
 }

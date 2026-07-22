@@ -7,6 +7,7 @@ import json
 import subprocess
 import sys
 import threading
+from urllib.parse import urlparse
 from pathlib import Path
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
@@ -18,6 +19,7 @@ class App:
         self.root.title("Azone 自动下单 GUI")
         self.config_path = tk.StringVar(value="config.json")
 
+        self.product_id = tk.StringVar(value="4573199843124")
         self.product_url = tk.StringVar()
         self.email = tk.StringVar()
         self.password = tk.StringVar()
@@ -41,6 +43,11 @@ class App:
         ttk.Entry(frm, textvariable=self.config_path).grid(row=row, column=1, sticky="ew", padx=4)
         ttk.Button(frm, text="选择", command=self.choose_config).grid(row=row, column=2)
         ttk.Button(frm, text="加载", command=self.load_config).grid(row=row, column=3, padx=4)
+
+        row += 1
+        ttk.Label(frm, text="商品ID/JAN码").grid(row=row, column=0, sticky="w")
+        ttk.Entry(frm, textvariable=self.product_id).grid(row=row, column=1, sticky="ew", padx=4)
+        ttk.Button(frm, text="生成链接", command=self.update_product_url_from_id).grid(row=row, column=2, padx=4)
 
         row += 1
         ttk.Label(frm, text="商品链接").grid(row=row, column=0, sticky="w")
@@ -79,6 +86,28 @@ class App:
         self.log_text.grid(row=row, column=0, columnspan=4, sticky="nsew", pady=(8, 0))
         frm.rowconfigure(row, weight=1)
 
+
+    @staticmethod
+    def build_product_url(product_id: str) -> str:
+        if not product_id:
+            return ""
+        return f"https://www.azone-int.co.jp/azonet/item/{product_id}"
+
+    @staticmethod
+    def extract_product_id(product_url: str) -> str:
+        path = urlparse(product_url).path.rstrip("/")
+        if "/item/" in path:
+            return path.rsplit("/", 1)[-1]
+        return ""
+
+    def update_product_url_from_id(self) -> None:
+        product_id = self.product_id.get().strip()
+        if not product_id:
+            messagebox.showerror("错误", "请先输入商品ID/JAN码。")
+            return
+        self.product_url.set(self.build_product_url(product_id))
+        self._log(f"已生成商品链接: {self.product_url.get()}")
+
     def choose_config(self) -> None:
         path = filedialog.askopenfilename(filetypes=[("JSON", "*.json"), ("All", "*.*")])
         if path:
@@ -90,7 +119,10 @@ class App:
             messagebox.showerror("错误", f"配置文件不存在: {path}")
             return
         data = json.loads(path.read_text(encoding="utf-8"))
-        self.product_url.set(data.get("product_url", ""))
+        product_url = data.get("product_url", "")
+        product_id = data.get("product_id") or self.extract_product_id(product_url)
+        self.product_id.set(product_id)
+        self.product_url.set(product_url or self.build_product_url(product_id))
         self.email.set(data.get("email", ""))
         self.password.set(data.get("password", ""))
         self.target_time.set(data.get("target_time") or "")
@@ -111,7 +143,12 @@ class App:
                 path.write_text("{}\n", encoding="utf-8")
 
         data = json.loads(path.read_text(encoding="utf-8"))
-        data["product_url"] = self.product_url.get().strip()
+        product_id = self.product_id.get().strip()
+        product_url = self.product_url.get().strip() or self.build_product_url(product_id)
+        if product_id:
+            product_url = self.build_product_url(product_id)
+        data["product_id"] = product_id
+        data["product_url"] = product_url
         data["email"] = self.email.get().strip()
         data["password"] = self.password.get()
         data["target_time"] = self.target_time.get().strip() or None
@@ -120,6 +157,7 @@ class App:
         data["parallel_refresh_pages"] = int(self.parallel_refresh_pages.get())
 
         path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        self.product_url.set(data["product_url"])
         self._log(f"已保存配置: {path}")
 
     def run_script(self) -> None:

@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 from playwright.sync_api import BrowserContext, Page, sync_playwright
 
@@ -26,6 +27,7 @@ class WorkflowConfig:
     email: str
     password: str
     selectors: dict[str, str]
+    product_id: str = ""
     launch_headless: bool = True
     slow_mo_ms: int = 0
     timeout_ms: int = 10_000
@@ -47,10 +49,11 @@ def load_config(path: Path) -> WorkflowConfig:
     return WorkflowConfig(
         base_url=data["base_url"],
         login_url=data["login_url"],
-        product_url=data["product_url"],
+        product_url=normalize_product_url(data.get("product_url", ""), str(data.get("product_id", "")).strip()),
+        product_id=resolve_product_id(data.get("product_url", ""), str(data.get("product_id", "")).strip()),
         email=data["email"],
         password=data["password"],
-        selectors=data["selectors"],
+        selectors=resolve_selectors(data["selectors"], resolve_product_id(data.get("product_url", ""), str(data.get("product_id", "")).strip())),
         launch_headless=data.get("launch_headless", True),
         slow_mo_ms=data.get("slow_mo_ms", 0),
         timeout_ms=data.get("timeout_ms", 10_000),
@@ -67,6 +70,39 @@ def load_config(path: Path) -> WorkflowConfig:
         multi_page_stagger_ms=data.get("multi_page_stagger_ms", 80),
     )
 
+
+
+def resolve_product_id(product_url: str, product_id: str = "") -> str:
+    """Return the product/JAN code from an explicit ID or an Azone item URL."""
+    product_id = product_id.strip()
+    if product_id:
+        return product_id
+
+    path = urlparse(product_url).path.rstrip("/")
+    if "/item/" in path:
+        return path.rsplit("/", 1)[-1]
+    return ""
+
+
+def normalize_product_url(product_url: str, product_id: str = "") -> str:
+    """Build the item URL from a user-entered ID when possible."""
+    product_id = resolve_product_id(product_url, product_id)
+    if product_id:
+        return f"https://www.azone-int.co.jp/azonet/item/{product_id}"
+    return product_url
+
+
+def resolve_selectors(selectors: dict[str, str], product_id: str) -> dict[str, str]:
+    """Format selectors that contain {product_id}.
+
+    Azone embeds the JAN code in fields such as name="item_cnt_457..." and
+    data-jancode="457...". Keeping these selectors as templates lets the same
+    config work for any product ID entered in the GUI or config file.
+    """
+    resolved = dict(selectors)
+    if product_id:
+        resolved = {key: value.format(product_id=product_id) for key, value in resolved.items()}
+    return resolved
 
 
 def validate_business_rules(cfg: WorkflowConfig) -> None:
@@ -124,9 +160,15 @@ def add_product_to_cart(page: Page, cfg: WorkflowConfig) -> Page:
         parallel_pages=cfg.parallel_refresh_pages,
         per_page_stagger_ms=cfg.multi_page_stagger_ms,
     )
-    if cfg.quantity > 1 and "quantity_input" in s:
+    if "quantity_input" in s:
         assert_selector(active_page, s["quantity_input"], "quantity_input")
-        active_page.fill(s["quantity_input"], str(cfg.quantity))
+        quantity = str(cfg.quantity)
+        field = active_page.locator(s["quantity_input"]).first
+        tag_name = field.evaluate("el => el.tagName.toLowerCase()")
+        if tag_name == "select":
+            field.select_option(quantity)
+        else:
+            field.fill(quantity)
     active_page.click(s["add_to_cart_button"])
     active_page.wait_for_load_state("networkidle")
     return active_page
@@ -224,6 +266,8 @@ def assert_selector(page: Page, selector: str, selector_name: str) -> None:
 
 def validate_product_page(page: Page, cfg: WorkflowConfig) -> None:
     print(f"验证商品页: {cfg.product_url}")
+    if cfg.product_id:
+        print(f"商品ID: {cfg.product_id}")
     page.goto(cfg.product_url, wait_until="networkidle")
     for key in ("add_to_cart_button", "quantity_input", "go_to_checkout_button"):
         selector = cfg.selectors.get(key)
